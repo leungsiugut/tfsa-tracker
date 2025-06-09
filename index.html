@@ -89,18 +89,18 @@
 </style>
 </head>
 <body>
-  <h1>TFSA Tracker</h1>
+  <h1>🤑 TFSA Tracker</h1>
   <div id="signin-button"></div>
   <p id="user-email"></p>
 
   <form id="tfsa-form" class="hidden">
     <input type="date" id="date" required>
     <select id="action" required>
+      <option>Annual Room Increase</option>
       <option>Contribution</option>
-      <option>Withdraw</option>
       <option>Interest</option>
       <option>Transfer</option>
-      <option>Annual Room Increase</option>
+      <option>Withdraw</option>
     </select>
     <input type="text" id="bankAccount" placeholder="Bank Account">
     <input type="number" id="amount" step="0.01" placeholder="Amount" required>
@@ -111,23 +111,23 @@
 
   <div class="layout">
   <div class="balances">
-    <h3>Account Balances</h3>
+    <h3>🐖Account Balances</h3>
     <table>
       <thead><tr><th>Bank Account</th><th>Balance</th></tr></thead>
       <tbody id="balances"></tbody>
     </table>
   </div>
   <div class="transactions">
-    <p><strong>Current Contribution Room:</strong> $<span id="room">0</span></p>
+    <p><strong>❓Current Contribution Room:</strong> $<span id="room">0</span></p>
     <table>
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Transaction Type</th>
-          <th>Bank Account</th>
-          <th>Amount</th>
-          <th>Contribution Room After</th>
-          <th>Actions</th>
+          <th>📅Date</th>
+          <th>💱Transaction Type</th>
+          <th>🏦Bank Account</th>
+          <th>💲Amount</th>
+          <th>📊Contribution Room After</th>
+          <th>✏Actions</th>
         </tr>
       </thead>
       <tbody id="log"></tbody>
