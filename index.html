@@ -5,111 +5,120 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TFSA Tracker</title>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script>
-    let googleUser = null;
-    let accessToken = null;
-    const fileNamePrefix = "tfsa_tracker_";
-
-    function handleCredentialResponse(response) {
-      const jwt = parseJwt(response.credential);
-      googleUser = jwt;
-      document.getElementById("signin-button").style.display = "none";
-      document.getElementById("signed-in-as").innerText = `Signed in as ${jwt.email}`;
-      initializeGapi(jwt.sub);
-    }
-
-    function parseJwt(token) {
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => `%${('00' + c.charCodeAt(0).toString(16)).slice(-2)}`).join(''));
-      return JSON.parse(jsonPayload);
-    }
-
-    function initializeGapi(userId) {
-      gapi.load('client', async () => {
-        await gapi.client.init({
-          apiKey: '',
-          clientId: '255642706987-fm46aujhnbk3ffoqg2cukm59j2de9hjm.apps.googleusercontent.com',
-          discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
-          scope: 'https://www.googleapis.com/auth/drive.appdata'
-        });
-        accessToken = gapi.auth.getToken().access_token;
-        loadDataFromDrive(userId);
-      });
-    }
-
-    async function loadDataFromDrive(userId) {
-      const query = `name='${fileNamePrefix + userId}.json' and 'appDataFolder' in parents`;
-      const response = await gapi.client.drive.files.list({ q: query, spaces: 'appDataFolder', fields: 'files(id, name)' });
-      const files = response.result.files;
-      if (files.length > 0) {
-        const fileId = files[0].id;
-        const fileContent = await gapi.client.drive.files.get({ fileId, alt: 'media' });
-        const jsonData = JSON.parse(fileContent.body);
-        restoreAppState(jsonData);
-      } else {
-        initializeEmptyState();
-      }
-    }
-
-    async function backupDataToDrive(userId, jsonData) {
-      const query = `name='${fileNamePrefix + userId}.json' and 'appDataFolder' in parents`;
-      const response = await gapi.client.drive.files.list({ q: query, spaces: 'appDataFolder', fields: 'files(id, name)' });
-      const blob = new Blob([JSON.stringify(jsonData)], { type: 'application/json' });
-      const metadata = {
-        name: `${fileNamePrefix + userId}.json`,
-        parents: ['appDataFolder'],
-      };
-
-      if (response.result.files.length > 0) {
-        const fileId = response.result.files[0].id;
-        await gapi.client.request({
-          path: `/upload/drive/v3/files/${fileId}`,
-          method: 'PATCH',
-          params: { uploadType: 'media' },
-          body: blob
-        });
-      } else {
-        const form = new FormData();
-        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-        form.append('file', blob);
-
-        await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-          method: 'POST',
-          headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }),
-          body: form
-        });
-      }
-    }
-
-    function restoreAppState(data) {
-      console.log('Restoring data:', data);
-      // todo: implement
-    }
-
-    function initializeEmptyState() {
-      console.log('No cloud data found. Start fresh.');
-      // todo: implement
-    }
-  </script>
+  <script src="https://apis.google.com/js/api.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 1rem; }
+    #signin-btn, #signout-btn { margin-bottom: 1rem; }
+    #app { display: none; }
+    textarea { width: 100%; height: 200px; margin-bottom: 1rem; }
+  </style>
 </head>
 <body>
-  <h1>TFSA Tracker</h1>
-  <div id="signin-button"></div>
-  <p id="signed-in-as"></p>
+  <div id="auth">
+    <div id="signin-btn"></div>
+    <button id="signout-btn" style="display: none;">Sign Out</button>
+  </div>
+
+  <div id="app">
+    <h2>TFSA Tracker</h2>
+    <textarea id="data-input" placeholder="Enter JSON data..."></textarea>
+    <button id="save-btn">Save</button>
+    <p id="status"></p>
+  </div>
 
   <script>
-    window.onload = () => {
-      google.accounts.id.initialize({
-        client_id: '255642706987-fm46aujhnbk3ffoqg2cukm59j2de9hjm.apps.googleusercontent.com',
-        callback: handleCredentialResponse
+    const CLIENT_ID = '255642706987-fm46aujhnbk3ffoqg2cukm59j2de9hjm.apps.googleusercontent.com';
+    let tokenClient, accessToken = null, userId = null;
+
+    function show(el) { el.style.display = ''; }
+    function hide(el) { el.style.display = 'none'; }
+
+    async function initGoogle() {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: 'https://www.googleapis.com/auth/drive.appdata',
+        callback: async tokenResponse => {
+          accessToken = tokenResponse.access_token;
+          show(document.getElementById('signout-btn'));
+          hide(document.getElementById('signin-btn'));
+          await gapiLoad();
+        }
       });
+
+      google.accounts.id.initialize({
+        client_id: CLIENT_ID,
+        callback: async res => {
+          const idToken = res.credential;
+          const payload = JSON.parse(atob(idToken.split('.')[1]));
+          userId = payload.sub;
+          tokenClient.requestAccessToken();
+        }
+      });
+
       google.accounts.id.renderButton(
-        document.getElementById("signin-button"),
-        { theme: "outline", size: "large" }
+        document.getElementById('signin-btn'),
+        { theme: 'outline', size: 'large' }
       );
     }
+
+    async function gapiLoad() {
+      gapi.load('client', async () => {
+        await gapi.client.load('drive', 'v3');
+        document.getElementById('app').style.display = 'block';
+        loadDataFromDrive();
+      });
+    }
+
+    async function loadDataFromDrive() {
+      const filename = `tfsa_tracker_${userId}.json`;
+      const list = await gapi.client.drive.files.list({ spaces: 'appDataFolder', fields: 'files(id, name)' });
+      const existing = list.result.files.find(f => f.name === filename);
+      if (existing) {
+        const file = await gapi.client.drive.files.get({ fileId: existing.id, alt: 'media' });
+        document.getElementById('data-input').value = file.body;
+        document.getElementById('status').innerText = `Loaded from Drive (${filename})`;
+      } else {
+        document.getElementById('status').innerText = 'No backup found on Drive. Start new.';
+      }
+    }
+
+    async function saveDataToDrive() {
+      const filename = `tfsa_tracker_${userId}.json`;
+      const content = document.getElementById('data-input').value;
+      const blob = new Blob([content], { type: 'application/json' });
+      const metadata = { name: filename, parents: ['appDataFolder'] };
+
+      const list = await gapi.client.drive.files.list({ spaces: 'appDataFolder', fields: 'files(id, name)' });
+      const existing = list.result.files.find(f => f.name === filename);
+
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+      form.append('file', blob);
+
+      const method = existing ? 'PATCH' : 'POST';
+      const url = existing
+        ? `https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=multipart`
+        : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+
+      await fetch(url, {
+        method,
+        headers: new Headers({ Authorization: 'Bearer ' + accessToken }),
+        body: form
+      });
+      document.getElementById('status').innerText = `Saved to Drive (${filename})`;
+    }
+
+    document.getElementById('save-btn').onclick = saveDataToDrive;
+    document.getElementById('signout-btn').onclick = () => {
+      google.accounts.id.disableAutoSelect();
+      accessToken = null;
+      userId = null;
+      hide(document.getElementById('signout-btn'));
+      show(document.getElementById('signin-btn'));
+      document.getElementById('app').style.display = 'none';
+    };
+
+    window.onload = initGoogle;
   </script>
-  <script src="https://apis.google.com/js/api.js"></script>
 </body>
 </html>
