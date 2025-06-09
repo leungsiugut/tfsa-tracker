@@ -38,12 +38,8 @@
     }
 
     table {
-      border-collapse: collapse;
-      width: 100%;
-      margin-bottom: 30px;
-      background: white;
-      border-radius: 8px;
-      overflow: hidden;
+      table-layout: fixed;
+      word-wrap: break-word;
     }
     th, td {
       padding: 10px;
@@ -56,13 +52,18 @@
 
     .layout {
       display: flex;
+      flex-direction: row;
+      align-items: flex-start;
       gap: 30px;
     }
     .transactions {
-      flex: 2;
+      flex: 1;
+      min-width: 700px;
+      overflow-x: auto;
     }
     .balances {
-      flex: 1;
+      flex: 0 0 280px;
+      min-width: 250px;
     }
 
     .hidden { display: none; }
