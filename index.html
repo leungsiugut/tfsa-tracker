@@ -1,124 +1,378 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TFSA Tracker</title>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="https://apis.google.com/js/api.js"></script>
+  <title>TFSA Tracker with Google Login & Drive Backup</title>
   <style>
-    body { font-family: sans-serif; padding: 1rem; }
-    #signin-btn, #signout-btn { margin-bottom: 1rem; }
-    #app { display: none; }
-    textarea { width: 100%; height: 200px; margin-bottom: 1rem; }
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #f2f4f8;
+      color: #333;
+      max-width: 960px;
+      margin: auto;
+      padding: 30px;
+    }
+    h1 {
+      color: #2b3a55;
+    }
+    #login-button, #logout-button {
+      padding: 10px 20px;
+      background: #2b3a55;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+    form {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 30px;
+    }
+    input, select, button {
+      padding: 8px;
+      margin: 5px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+    button {
+      background: #2b3a55;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      margin-bottom: 30px;
+    }
+    th, td {
+      padding: 10px 15px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+    }
+    th {
+      background: #f7f9fc;
+      font-weight: bold;
+    }
+    .section-title {
+      margin-top: 40px;
+      margin-bottom: 10px;
+      font-size: 1.3em;
+    }
+    #app {
+      display: none;
+    }
+    #status {
+      margin-bottom: 20px;
+      font-weight: bold;
+      color: #555;
+    }
   </style>
 </head>
 <body>
-  <div id="auth">
-    <div id="signin-btn"></div>
-    <button id="signout-btn" style="display: none;">Sign Out</button>
-  </div>
+
+  <h1>TFSA Tracker</h1>
+  <button id="login-button">Sign In with Google</button>
+  <button id="logout-button" style="display:none;">Logout</button>
+  <div id="status"></div>
 
   <div id="app">
-    <h2>TFSA Tracker</h2>
-    <textarea id="data-input" placeholder="Enter JSON data..."></textarea>
-    <button id="save-btn">Save</button>
-    <p id="status"></p>
+    <p><strong>Current Contribution Room:</strong> <span id="room">0</span></p>
+
+    <form id="tfsa-form">
+      <input type="date" id="date" required>
+      <select id="action">
+        <option value="Contribution">Contribution</option>
+        <option value="Withdraw">Withdraw</option>
+        <option value="Interest">Interest</option>
+        <option value="Transfer">Transfer</option>
+        <option value="Room Increase">Room Increase</option>
+      </select>
+      <input type="text" id="bank" placeholder="Bank" required>
+      <input type="text" id="account" placeholder="Account" required>
+      <input type="number" step="0.01" id="amount" placeholder="Amount $" required>
+      <button type="submit">Add Transaction</button>
+    </form>
+
+    <div class="section-title">Transactions</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Action</th>
+          <th>Bank</th>
+          <th>Account</th>
+          <th>Amount</th>
+          <th>Contribution Room After</th>
+        </tr>
+      </thead>
+      <tbody id="log"></tbody>
+    </table>
+
+    <div class="section-title">Account Balances</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Bank</th>
+          <th>Account</th>
+          <th>Balance</th>
+        </tr>
+      </thead>
+      <tbody id="balances"></tbody>
+    </table>
   </div>
 
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <script>
-    const CLIENT_ID = '255642706987-fm46aujhnbk3ffoqg2cukm59j2de9hjm.apps.googleusercontent.com';
-    let tokenClient, accessToken = null, userId = null;
+    const CLIENT_ID = "255642706987-fm46aujhnbk3ffoqg2cukm59j2de9hjm.apps.googleusercontent.com";
+    const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
 
-    function show(el) { el.style.display = ''; }
-    function hide(el) { el.style.display = 'none'; }
+    let tokenClient;
+    let accessToken = null;
+    let userId = null;
 
-    async function initGoogle() {
-      tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: 'https://www.googleapis.com/auth/drive.appdata',
-        callback: async tokenResponse => {
-          accessToken = tokenResponse.access_token;
-          show(document.getElementById('signout-btn'));
-          hide(document.getElementById('signin-btn'));
-          await gapiLoad();
+    const loginBtn = document.getElementById('login-button');
+    const logoutBtn = document.getElementById('logout-button');
+    const statusDiv = document.getElementById('status');
+    const appDiv = document.getElementById('app');
+
+    // App UI elements
+    const roomDisplay = document.getElementById("room");
+    const form = document.getElementById("tfsa-form");
+    const log = document.getElementById("log");
+    const balancesTable = document.getElementById("balances");
+
+    let transactions = [];
+    let balances = {};
+    let contributionRoom = 0;
+
+    function updateUI() {
+      log.innerHTML = "";
+      balances = {};
+      contributionRoom = 0;
+
+      transactions.forEach((tx) => {
+        const key = `${tx.bank}|${tx.account}`;
+        if (!balances[key]) balances[key] = 0;
+
+        if (tx.action === "Contribution") {
+          balances[key] += tx.amount;
+          contributionRoom -= tx.amount;
+        } else if (tx.action === "Withdraw") {
+          balances[key] -= tx.amount;
+          contributionRoom += tx.amount;
+        } else if (tx.action === "Interest") {
+          balances[key] += tx.amount;
+        } else if (tx.action === "Room Increase") {
+          contributionRoom += tx.amount;
+        } else if (tx.action === "Transfer") {
+          const parts = tx.account.split("→");
+          if (parts.length === 2) {
+            const from = `${tx.bank}|${parts[0].trim()}`;
+            const to = `${tx.bank}|${parts[1].trim()}`;
+            if (!balances[from]) balances[from] = 0;
+            if (!balances[to]) balances[to] = 0;
+            balances[from] -= tx.amount;
+            balances[to] += tx.amount;
+          }
         }
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${tx.date}</td>
+          <td>${tx.action}</td>
+          <td>${tx.bank}</td>
+          <td>${tx.account}</td>
+          <td>$${tx.amount.toFixed(2)}</td>
+          <td>${contributionRoom.toLocaleString()}</td>
+        `;
+        log.appendChild(row);
       });
 
-      google.accounts.id.initialize({
-        client_id: CLIENT_ID,
-        callback: async res => {
-          const idToken = res.credential;
-          const payload = JSON.parse(atob(idToken.split('.')[1]));
-          userId = payload.sub;
-          tokenClient.requestAccessToken();
-        }
-      });
+      roomDisplay.textContent = contributionRoom.toLocaleString();
 
-      google.accounts.id.renderButton(
-        document.getElementById('signin-btn'),
-        { theme: 'outline', size: 'large' }
-      );
-    }
-
-    async function gapiLoad() {
-      gapi.load('client', async () => {
-        await gapi.client.load('drive', 'v3');
-        document.getElementById('app').style.display = 'block';
-        loadDataFromDrive();
-      });
-    }
-
-    async function loadDataFromDrive() {
-      const filename = `tfsa_tracker_${userId}.json`;
-      const list = await gapi.client.drive.files.list({ spaces: 'appDataFolder', fields: 'files(id, name)' });
-      const existing = list.result.files.find(f => f.name === filename);
-      if (existing) {
-        const file = await gapi.client.drive.files.get({ fileId: existing.id, alt: 'media' });
-        document.getElementById('data-input').value = file.body;
-        document.getElementById('status').innerText = `Loaded from Drive (${filename})`;
-      } else {
-        document.getElementById('status').innerText = 'No backup found on Drive. Start new.';
+      balancesTable.innerHTML = "";
+      for (const key in balances) {
+        const [bank, account] = key.split("|");
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${bank}</td>
+          <td>${account}</td>
+          <td>$${balances[key].toFixed(2)}</td>
+        `;
+        balancesTable.appendChild(row);
       }
     }
 
-    async function saveDataToDrive() {
-      const filename = `tfsa_tracker_${userId}.json`;
-      const content = document.getElementById('data-input').value;
-      const blob = new Blob([content], { type: 'application/json' });
-      const metadata = { name: filename, parents: ['appDataFolder'] };
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const tx = {
+        date: document.getElementById("date").value,
+        action: document.getElementById("action").value,
+        bank: document.getElementById("bank").value,
+        account: document.getElementById("account").value,
+        amount: parseFloat(document.getElementById("amount").value),
+      };
+      transactions.push(tx);
+      updateUI();
+      await saveToDrive();
+      form.reset();
+    });
 
-      const list = await gapi.client.drive.files.list({ spaces: 'appDataFolder', fields: 'files(id, name)' });
-      const existing = list.result.files.find(f => f.name === filename);
-
-      const form = new FormData();
-      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-      form.append('file', blob);
-
-      const method = existing ? 'PATCH' : 'POST';
-      const url = existing
-        ? `https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=multipart`
-        : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-
-      await fetch(url, {
+    // Google API helper functions
+    function gapiRequest(path, method='GET', body=null) {
+      return fetch(`https://www.googleapis.com/drive/v3/${path}`, {
         method,
-        headers: new Headers({ Authorization: 'Bearer ' + accessToken }),
-        body: form
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: body ? JSON.stringify(body) : null
+      }).then(r => {
+        if (!r.ok) throw new Error(`API error ${r.status}`);
+        return r.json();
       });
-      document.getElementById('status').innerText = `Saved to Drive (${filename})`;
     }
 
-    document.getElementById('save-btn').onclick = saveDataToDrive;
-    document.getElementById('signout-btn').onclick = () => {
-      google.accounts.id.disableAutoSelect();
-      accessToken = null;
-      userId = null;
-      hide(document.getElementById('signout-btn'));
-      show(document.getElementById('signin-btn'));
-      document.getElementById('app').style.display = 'none';
+    async function findBackupFile() {
+      const q = `name='tfsa_tracker_${userId}.json' and 'appDataFolder' in parents and trashed=false`;
+      const res = await gapiRequest(`files?q=${encodeURIComponent(q)}&spaces=appDataFolder&fields=files(id,name)`);
+      return res.files.length ? res.files[0] : null;
+    }
+
+    async function downloadBackup(fileId) {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (!res.ok) throw new Error('Download failed');
+      return res.json();
+    }
+
+    async function uploadBackup(fileId = null) {
+      const metadata = {
+        name: `tfsa_tracker_${userId}.json`,
+        parents: ['appDataFolder']
+      };
+      const fileContent = JSON.stringify({ transactions });
+      const boundary = '-------314159265358979323846';
+      const delimiter = `\r\n--${boundary}\r\n`;
+      const close_delim = `\r\n--${boundary}--`;
+
+      let body =
+        delimiter +
+        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+        JSON.stringify(metadata) +
+        delimiter +
+        'Content-Type: application/json\r\n\r\n' +
+        fileContent +
+        close_delim;
+
+      let url = 'https://www.googleapis.com/upload/drive/v3/files';
+      let method = 'POST';
+
+      if (fileId) {
+        url += `/${fileId}`;
+        method = 'PATCH';
+      }
+
+      const res = await fetch(url + '?uploadType=multipart', {
+        method,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`,
+        },
+        body: body,
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      return res.json();
+    }
+
+    async function saveToDrive() {
+      statusDiv.textContent = 'Saving backup to Google Drive...';
+      try {
+        const file = await findBackupFile();
+        await uploadBackup(file ? file.id : null);
+        statusDiv.textContent = 'Backup saved!';
+      } catch (e) {
+        statusDiv.textContent = 'Backup failed: ' + e.message;
+      }
+    }
+
+    async function loadFromDrive() {
+      statusDiv.textContent = 'Loading backup from Google Drive...';
+      try {
+        const file = await findBackupFile();
+        if (!file) {
+          statusDiv.textContent = 'No backup found. Please enter your data below.';
+          transactions = [];
+          updateUI();
+          return;
+        }
+        const data = await downloadBackup(file.id);
+        transactions = data.transactions || [];
+        updateUI();
+        statusDiv.textContent = 'Backup loaded.';
+      } catch (e) {
+        statusDiv.textContent = 'Failed to load backup: ' + e.message;
+      }
+    }
+
+    // Google Sign-in init
+    function handleCredentialResponse(response) {
+      // Deprecated for this flow, we use tokenClient to get access token
+    }
+
+    loginBtn.onclick = () => {
+      if (!tokenClient) {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: SCOPES,
+          callback: async (tokenResponse) => {
+            if (tokenResponse.error) {
+              statusDiv.textContent = 'Login error: ' + tokenResponse.error;
+              return;
+            }
+            accessToken = tokenResponse.access_token;
+            loginBtn.style.display = 'none';
+            logoutBtn.style.display = 'inline-block';
+            appDiv.style.display = 'block';
+
+            // Get user info
+            const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+              headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            const userInfo = await res.json();
+            userId = userInfo.sub;
+
+            await loadFromDrive();
+          },
+        });
+      }
+      tokenClient.requestAccessToken();
     };
 
-    window.onload = initGoogle;
+    logoutBtn.onclick = () => {
+      accessToken = null;
+      userId = null;
+      transactions = [];
+      updateUI();
+      appDiv.style.display = 'none';
+      loginBtn.style.display = 'inline-block';
+      logoutBtn.style.display = 'none';
+      statusDiv.textContent = 'Logged out.';
+    };
+
+    // 預設係未登入狀態
+    updateUI();
+
   </script>
 </body>
 </html>
