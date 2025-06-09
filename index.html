@@ -100,7 +100,7 @@
       <option>Withdraw</option>
       <option>Interest</option>
       <option>Transfer</option>
-      <option>Room Increase</option>
+      <option>Annual Room Increase</option>
     </select>
     <input type="text" id="bankAccount" placeholder="Bank Account">
     <input type="number" id="amount" step="0.01" placeholder="Amount" required>
@@ -151,7 +151,7 @@
       transactions.forEach((tx, i) => {
         if (tx.action === "Contribution") room -= tx.amount;
         else if (tx.action === "Withdraw") room += tx.amount;
-        else if (tx.action === "Room Increase") room += tx.amount;
+        else if (tx.action === "Annual Room Increase") room += tx.amount;
 
         const row = document.createElement("tr");
 
@@ -175,7 +175,7 @@
           const [from, to] = tx.bankAccount.split("→").map(x => x.trim());
           balanceMap[from] = (balanceMap[from] || 0) - tx.amount;
           balanceMap[to] = (balanceMap[to] || 0) + tx.amount;
-        } else if (tx.action !== "Room Increase") {
+        } else if (tx.action !== "Annual Room Increase") {
           const acct = tx.bankAccount;
           balanceMap[acct] = (balanceMap[acct] || 0);
           if (tx.action === "Contribution" || tx.action === "Interest")
@@ -215,7 +215,7 @@
       const account = document.getElementById("bankAccount").value;
       const amount = parseFloat(document.getElementById("amount").value);
       const date = document.getElementById("date").value;
-      if (action !== "Room Increase" && !account.trim()) return alert("Please enter Bank Account.");
+      if (action !== "Annual Room Increase" && !account.trim()) return alert("Please enter Bank Account.");
       transactions.push({ date, action, bankAccount: account, amount });
       transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
       updateUI();
