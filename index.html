@@ -1,97 +1,75 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <title>TFSA Tracker</title>
   <meta name="google-signin-client_id" content="255642706987-fm46aujhnbk3ffoqg2cukm59j2de9hjm.apps.googleusercontent.com">
   <style>
     body {
       font-family: "Segoe UI", sans-serif;
-      background: #fff8d4; /* 鵝黃色 */
-      color: #1c4e80; /* 藍色 */
-      max-width: 960px;
-      margin: auto;
+      background: #fffdf0;
+      color: #333;
       padding: 30px;
+      max-width: 1200px;
+      margin: auto;
     }
-    h1 {
-      color: #1c4e80;
-      margin-bottom: 20px;
-    }
-    #container {
-      display: flex;
-      gap: 30px;
-      justify-content: flex-start;
-    }
-    #balances-section, #transactions-section {
-      background: white;
-      padding: 15px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    #balances-section {
-      flex: 1;
-      min-width: 220px;
-    }
-    #transactions-section {
-      flex: 3;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-    }
-    th, td {
-      padding: 10px 12px;
-      border-bottom: 1px solid #eee;
-      text-align: left;
-      vertical-align: middle;
-    }
-    th {
-      background: #ffefb0;
-      font-weight: bold;
-      color: #1c4e80;
-    }
-    .section-title {
-      font-size: 1.3em;
-      margin-bottom: 10px;
-      font-weight: 600;
-    }
+    h1 { color: #1c4e80; }
+
     form {
       background: #fff8d4;
-      padding: 20px;
+      padding: 15px;
       border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       margin-bottom: 30px;
-      color: #1c4e80;
-      font-weight: 600;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
     }
     input, select, button {
-      padding: 8px;
-      margin: 5px 10px 5px 0;
-      border-radius: 6px;
-      border: 1px solid #1c4e80;
+      padding: 6px;
       font-size: 14px;
-      font-weight: normal;
-      color: #1c4e80;
-      background: white;
+      border: 1px solid #ccc;
+      border-radius: 6px;
     }
     button {
       background: #1c4e80;
       color: white;
-      border: none;
       cursor: pointer;
-      min-width: 110px;
     }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-bottom: 30px;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    th {
+      background: #ffe;
+    }
+    .right { text-align: right; }
+
+    .layout {
+      display: flex;
+      gap: 30px;
+    }
+    .transactions {
+      flex: 2;
+    }
+    .balances {
+      flex: 1;
+    }
+
+    .hidden { display: none; }
     .action-btn {
       cursor: pointer;
-      font-size: 18px;
-      color: #1c4e80;
-      margin-left: 8px;
-      user-select: none;
-    }
-    .action-btn:hover {
-      color: #3a70c1;
+      font-size: 16px;
+      margin: 0 5px;
     }
   </style>
 </head>
@@ -99,300 +77,166 @@
   <h1>TFSA Tracker</h1>
   <div id="signin-button"></div>
   <p id="user-email"></p>
-  <p><strong>Current Contribution Room: </strong><span id="room">$0</span></p>
 
   <form id="tfsa-form" class="hidden">
     <input type="date" id="date" required>
     <select id="action" required>
-      <option value="Contribution">Contribution</option>
-      <option value="Withdraw">Withdraw</option>
-      <option value="Interest">Interest</option>
-      <option value="Transfer">Transfer</option>
-      <option value="Room Increase">Room Increase</option>
+      <option>Contribution</option>
+      <option>Withdraw</option>
+      <option>Interest</option>
+      <option>Transfer</option>
+      <option>Room Increase</option>
     </select>
-    <input type="text" id="bankAccount" placeholder="Bank Account" >
-    <input type="text" id="toBankAccount" placeholder="To Bank Account" class="hidden" >
-    <input type="number" step="0.01" id="amount" placeholder="Amount $" required>
-    <button type="submit">Add Transaction</button>
+    <input type="text" id="bankAccount" placeholder="Bank Account">
+    <input type="number" id="amount" step="0.01" placeholder="Amount" required>
+    <button type="submit">Add</button>
+    <button type="button" onclick="downloadBackup()">💾 Backup</button>
+    <input type="file" onchange="uploadBackup(event)" accept=".json">
   </form>
 
-  <div id="container" class="hidden">
-    <div id="balances-section">
-      <div class="section-title">Account Balances</div>
+  <div class="layout">
+    <div class="transactions">
+      <p><strong>Current Contribution Room:</strong> $<span id="room">0</span></p>
       <table>
         <thead>
-          <tr><th>Bank Account</th><th>Balance</th></tr>
-        </thead>
-        <tbody id="balances"></tbody>
-      </table>
-    </div>
-    <div id="transactions-section">
-      <div class="section-title">Transactions</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Transaction Type</th>
-            <th>From Bank Account</th>
-            <th>To Bank Account</th>
-            <th>Amount</th>
-            <th>Contribution Room After</th>
-            <th>Actions</th>
-          </tr>
+          <tr><th>Date</th><th>Transaction Type</th><th>Bank Account</th><th>Amount</th><th>Contribution Room After</th><th>Actions</th></tr>
         </thead>
         <tbody id="log"></tbody>
+      </table>
+    </div>
+    <div class="balances">
+      <h3>Account Balances</h3>
+      <table>
+        <thead><tr><th>Bank Account</th><th>Balance</th></tr></thead>
+        <tbody id="balances"></tbody>
       </table>
     </div>
   </div>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
-    let tokenClient, accessToken, userEmail = "", userId = "";
-    let transactions = [];
-    let contributionRoom = 0;
-    let balances = {};
-
-    function formatAmount(num) {
-      return "$" + num.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    }
+    let userId = "", userEmail = "", transactions = [], accessToken = "";
 
     function updateUI() {
-      contributionRoom = 0;
-      balances = {};
-      // 排序：先日期由舊到新，同日按輸入先後（即原陣列順序）
-      transactions.sort((a,b) => {
-        if (a.date < b.date) return -1;
-        else if (a.date > b.date) return 1;
-        else return 0;
-      });
+      const log = document.getElementById("log");
+      const balancesTbl = document.getElementById("balances");
+      const roomDisplay = document.getElementById("room");
+      log.innerHTML = "";
+      balancesTbl.innerHTML = "";
 
-      // 計算 balances 同 contribution room
-      transactions.forEach(tx => {
-        if (tx.action === "Contribution") {
-          balances[tx.bankAccount] = (balances[tx.bankAccount] || 0) + tx.amount;
-          contributionRoom -= tx.amount;
-        } else if (tx.action === "Withdraw") {
-          balances[tx.bankAccount] = (balances[tx.bankAccount] || 0) - tx.amount;
-          contributionRoom += tx.amount;
-        } else if (tx.action === "Interest") {
-          balances[tx.bankAccount] = (balances[tx.bankAccount] || 0) + tx.amount;
-        } else if (tx.action === "Room Increase") {
-          contributionRoom += tx.amount;
-        } else if (tx.action === "Transfer") {
-          let from = tx.fromBankAccount || "";
-          let to = tx.toBankAccount || "";
-          balances[from] = (balances[from] || 0) - tx.amount;
-          balances[to] = (balances[to] || 0) + tx.amount;
-        }
-      });
+      let balanceMap = {}, room = 0, runningRoom = 0;
 
-      // 更新貢獻額顯示
-      document.getElementById("room").textContent = formatAmount(contributionRoom);
+      transactions.forEach((tx, i) => {
+        if (tx.action === "Contribution") room -= tx.amount;
+        else if (tx.action === "Withdraw") room += tx.amount;
+        else if (tx.action === "Room Increase") room += tx.amount;
 
-      // 更新 Account Balances 表格
-      const balancesTbody = document.getElementById("balances");
-      balancesTbody.innerHTML = "";
-      for (const key in balances) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${key}</td><td>${formatAmount(balances[key])}</td>`;
-        balancesTbody.appendChild(tr);
-      }
+        const row = document.createElement("tr");
 
-      // 更新 Transactions 表格
-      const logTbody = document.getElementById("log");
-      logTbody.innerHTML = "";
-      let tempContributionRoom = contributionRoom; // 用嚟計算每行顯示既 room after
-      transactions.forEach((tx,i) => {
-        let fromBank = "";
-        let toBank = "";
-        if (tx.action === "Transfer") {
-          fromBank = tx.fromBankAccount || "";
-          toBank = tx.toBankAccount || "";
-        } else if (tx.action !== "Room Increase") {
-          toBank = tx.bankAccount;
-        }
+        const displayBank = tx.action === "Transfer" ? tx.bankAccount : (tx.bankAccount || "-");
 
-        // Contribution Room After 顯示，只有「Contribution」和「Withdraw」會改動 room，Room Increase 不顯示bank account且只影響room
-        let roomAfterStr = "";
-        if (tx.action === "Contribution") {
-          tempContributionRoom += tx.amount; // 因為之前係扣左，故加返
-          roomAfterStr = formatAmount(tempContributionRoom);
-        } else if (tx.action === "Withdraw") {
-          tempContributionRoom -= tx.amount;
-          roomAfterStr = formatAmount(tempContributionRoom);
-        } else if (tx.action === "Room Increase") {
-          roomAfterStr = formatAmount(tempContributionRoom);
-        } else {
-          roomAfterStr = formatAmount(tempContributionRoom);
-        }
-
-        // 動作按鈕用 SVG icon (筆、垃圾桶)
-        const editBtn = `<span class="action-btn" title="Edit" onclick="editTx(${i})">&#9998;</span>`;  // ✎
-        const deleteBtn = `<span class="action-btn" title="Delete" onclick="deleteTx(${i})">&#128465;</span>`;  // 🗑
-
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
+        row.innerHTML = `
           <td>${tx.date}</td>
           <td>${tx.action}</td>
-          <td>${fromBank}</td>
-          <td>${toBank}</td>
-          <td>${formatAmount(tx.amount)}</td>
-          <td>${roomAfterStr}</td>
-          <td>${editBtn}${deleteBtn}</td>
+          <td>${displayBank}</td>
+          <td class="right">$${tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+          <td class="right">$${room.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+          <td>
+            <span class="action-btn" onclick="editTx(${i})">🖊</span>
+            <span class="action-btn" onclick="deleteTx(${i})">🗑</span>
+          </td>
         `;
-        logTbody.appendChild(tr);
+        log.appendChild(row);
+
+        // update balances
+        if (tx.action === "Transfer") {
+          const [from, to] = tx.bankAccount.split("→").map(x => x.trim());
+          balanceMap[from] = (balanceMap[from] || 0) - tx.amount;
+          balanceMap[to] = (balanceMap[to] || 0) + tx.amount;
+        } else if (tx.action !== "Room Increase") {
+          const acct = tx.bankAccount;
+          balanceMap[acct] = (balanceMap[acct] || 0);
+          if (tx.action === "Contribution" || tx.action === "Interest")
+            balanceMap[acct] += tx.amount;
+          else if (tx.action === "Withdraw")
+            balanceMap[acct] -= tx.amount;
+        }
       });
+
+      roomDisplay.textContent = room.toLocaleString(undefined, { minimumFractionDigits: 2 });
+
+      for (const acct in balanceMap) {
+        const row = document.createElement("tr");
+        row.innerHTML = `<td>${acct}</td><td class="right">$${balanceMap[acct].toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>`;
+        balancesTbl.appendChild(row);
+      }
     }
 
-    function resetForm() {
-      document.getElementById("tfsa-form").reset();
-      document.getElementById("bankAccount").classList.remove("hidden");
-      document.getElementById("toBankAccount").classList.add("hidden");
-    }
-
-    function editTx(index) {
-      const tx = transactions[index];
+    function editTx(i) {
+      const tx = transactions[i];
       document.getElementById("date").value = tx.date;
       document.getElementById("action").value = tx.action;
-      if (tx.action === "Transfer") {
-        document.getElementById("bankAccount").value = tx.fromBankAccount || "";
-        document.getElementById("toBankAccount").value = tx.toBankAccount || "";
-        document.getElementById("bankAccount").classList.remove("hidden");
-        document.getElementById("toBankAccount").classList.remove("hidden");
-      } else {
-        document.getElementById("bankAccount").value = tx.bankAccount || "";
-        document.getElementById("bankAccount").classList.remove("hidden");
-        document.getElementById("toBankAccount").classList.add("hidden");
-      }
+      document.getElementById("bankAccount").value = tx.bankAccount;
       document.getElementById("amount").value = tx.amount;
-      transactions.splice(index, 1);
+      transactions.splice(i, 1);
       updateUI();
     }
 
-    function deleteTx(index) {
-      transactions.splice(index, 1);
+    function deleteTx(i) {
+      transactions.splice(i, 1);
       updateUI();
-      saveData();
     }
-
-    // 動態切換 bankAccount / toBankAccount 欄位顯示
-    document.getElementById("action").addEventListener("change", e => {
-      const val = e.target.value;
-      if (val === "Transfer") {
-        document.getElementById("bankAccount").placeholder = "From Bank Account";
-        document.getElementById("toBankAccount").classList.remove("hidden");
-        document.getElementById("toBankAccount").required = true;
-      } else {
-        document.getElementById("bankAccount").placeholder = "Bank Account";
-        document.getElementById("toBankAccount").classList.add("hidden");
-        document.getElementById("toBankAccount").required = false;
-      }
-      if (val === "Room Increase") {
-        document.getElementById("bankAccount").classList.add("hidden");
-        document.getElementById("bankAccount").required = false;
-      } else {
-        document.getElementById("bankAccount").classList.remove("hidden");
-        if(val !== "Transfer") document.getElementById("bankAccount").required = true;
-      }
-    });
 
     document.getElementById("tfsa-form").addEventListener("submit", e => {
       e.preventDefault();
       const action = document.getElementById("action").value;
-      let bankAccount = document.getElementById("bankAccount").value.trim();
-      const toBankAccount = document.getElementById("toBankAccount").value.trim();
+      const account = document.getElementById("bankAccount").value;
       const amount = parseFloat(document.getElementById("amount").value);
       const date = document.getElementById("date").value;
-
-      if (action === "Transfer") {
-        if (!bankAccount || !toBankAccount) {
-          alert("Please fill both From and To Bank Account");
-          return;
-        }
-        transactions.push({ date, action, fromBankAccount: bankAccount, toBankAccount, amount });
-      } else if (action === "Room Increase") {
-        transactions.push({ date, action, amount });
-      } else {
-        if (!bankAccount) {
-          alert("Please fill Bank Account");
-          return;
-        }
-        transactions.push({ date, action, bankAccount, amount });
-      }
-
+      if (action !== "Room Increase" && !account.trim()) return alert("Please enter Bank Account.");
+      transactions.push({ date, action, bankAccount: account, amount });
+      transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
       updateUI();
-      saveData();
-      resetForm();
+      e.target.reset();
     });
 
-    async function loadData() {
-      await gapi.client.drive.files.list({
-        spaces: 'appDataFolder', fields: 'files(id,name)', q: `name='tfsa_tracker_${userId}.json'`
-      }).then(resp => {
-        if (resp.result.files.length) {
-          const fileId = resp.result.files[0].id;
-          gapi.client.drive.files.get({ fileId, alt: 'media' }).then(content => {
-            transactions = JSON.parse(content.body || content.result || '[]');
-            updateUI();
-          });
-        } else {
-          transactions = [];
-          updateUI();
-          document.getElementById("tfsa-form").classList.remove("hidden");
-        }
-      });
+    function downloadBackup() {
+      const blob = new Blob([JSON.stringify(transactions)], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `tfsa_backup_${userId}.json`;
+      link.click();
     }
 
-    async function saveData() {
-      const blob = new Blob([JSON.stringify(transactions)], { type: 'application/json' });
-      const fileMeta = { name: `tfsa_tracker_${userId}.json`, parents: ['appDataFolder'] };
-
-      const list = await gapi.client.drive.files.list({ spaces: 'appDataFolder', q: `name='tfsa_tracker_${userId}.json'`, fields: 'files(id)' });
-      const existing = list.result.files[0];
-
-      const form = new FormData();
-      form.append('metadata', new Blob([JSON.stringify(fileMeta)], { type: 'application/json' }));
-      form.append('file', blob);
-
-      const method = existing ? 'PATCH' : 'POST';
-      const url = existing ?
-        `https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=multipart` :
-        `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
-
-      await fetch(url, {
-        method,
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: form
-      });
+    function uploadBackup(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          transactions = JSON.parse(reader.result);
+          updateUI();
+        } catch (err) {
+          alert("Invalid file format.");
+        }
+      };
+      reader.readAsText(file);
     }
 
     window.onload = () => {
       google.accounts.id.initialize({
         client_id: "255642706987-fm46aujhnbk3ffoqg2cukm59j2de9hjm.apps.googleusercontent.com",
-        callback: async (res) => {
-          const credential = res.credential;
-          const response = await fetch("https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + credential);
-          const data = await response.json();
-          userEmail = data.email;
-          userId = data.sub;
-          document.getElementById("signin-button").classList.add("hidden");
-          document.getElementById("user-email").textContent = `Logged in as ${userEmail}`;
-          document.getElementById("container").classList.remove("hidden");
-          document.getElementById("tfsa-form").classList.remove("hidden");
-
-          tokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: "255642706987-fm46aujhnbk3ffoqg2cukm59j2de9hjm.apps.googleusercontent.com",
-            scope: "https://www.googleapis.com/auth/drive.appdata",
-            callback: async (res) => {
-              accessToken = res.access_token;
-              gapi.load('client', async () => {
-                await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');
-                gapi.client.setToken({ access_token: accessToken });
-                await loadData();
-              });
-            }
-          });
-          tokenClient.requestAccessToken();
+        callback: res => {
+          const token = res.credential;
+          fetch("https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + token)
+            .then(r => r.json())
+            .then(data => {
+              userId = data.sub;
+              userEmail = data.email;
+              document.getElementById("signin-button").classList.add("hidden");
+              document.getElementById("user-email").textContent = `Logged in as ${userEmail}`;
+              document.getElementById("tfsa-form").classList.remove("hidden");
+            });
         }
       });
       google.accounts.id.renderButton(document.getElementById("signin-button"), {
