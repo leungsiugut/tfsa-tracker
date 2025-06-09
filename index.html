@@ -3,96 +3,89 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TFSA Tracker</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      background: #fffbe6;
-      margin: 0;
-      padding: 1rem;
-    }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .button {
-      background: #facc15;
-      color: #000;
-      border: none;
-      border-radius: 6px;
-      padding: 6px 12px;
-      cursor: pointer;
-      margin-left: 8px;
-    }
-    .button:hover {
-      background: #fde047;
-    }
-    .transaction-row {
-      display: grid;
-      grid-template-columns: repeat(8, auto);
-      gap: 8px;
-      align-items: center;
-      padding: 4px 0;
-      border-bottom: 1px solid #eee;
-    }
-    .action-room-increase { color: pink; }
-    .action-contribution { color: blue; }
-    .action-interest { color: green; }
-    .action-transfer { color: gray; }
-    .action-withdraw { color: orange; }
-    .top-right {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-    }
-  </style>
-  <script src="https://apis.google.com/js/api.js"></script>
+  <title>TFSA Tracker with Google Drive</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-  <header>
-    <h1>TFSA Tracker</h1>
-    <div class="top-right">
-      <button class="button" onclick="resetAll()">Reset All</button>
-      <button class="button" onclick="signInWithGoogle()">Google Sync</button>
-    </div>
-  </header>
-
-  <section>
-    <p id="lastSyncTime"></p>
-  </section>
+  <h1>TFSA Tracker</h1>
+  <button id="loginButton">Sign in with Google</button>
+  <button id="backupButton" style="display:none">Backup to Drive</button>
+  <pre id="status"></pre>
 
   <script>
+    const CLIENT_ID = "255642706987-fm46aujhnbk3ffoqg2cukm59j2de9hjm.apps.googleusercontent.com";
     let accessToken = null;
 
-    function resetAll() {
-      if (confirm("Are you sure you want to reset all data?")) {
-        localStorage.clear();
-        location.reload();
-      }
-    }
-
-    function signInWithGoogle() {
-      gapi.load('client:auth2', async () => {
-        try {
-          await gapi.client.init({
-            clientId: '255642706987-fm46aujhnbk3ffoqg2cukm59j2de9hjm.apps.googleusercontent.com',
-            scope: 'https://www.googleapis.com/auth/drive.file',
-          });
-
-          const authInstance = gapi.auth2.getAuthInstance();
-          const googleUser = await authInstance.signIn();
-          accessToken = googleUser.getAuthResponse().access_token;
-          document.getElementById("lastSyncTime").innerText = `Signed in as ${googleUser.getBasicProfile().getEmail()}`;
-
-          // TODO: Load JSON from Drive if exists
-          console.log("Access Token:", accessToken);
-        } catch (err) {
-          console.error("Google Sign-in error:", err);
-          alert("Google sign-in failed.");
-        }
+    // Set up Google Sign-in
+    window.onload = () => {
+      google.accounts.id.initialize({
+        client_id: CLIENT_ID,
+        callback: handleCredentialResponse,
+        ux_mode: "popup"
       });
+
+      document.getElementById("loginButton").addEventListener("click", () => {
+        google.accounts.id.prompt();
+      });
+    };
+
+    function handleCredentialResponse(response) {
+      const jwt = response.credential;
+      // Exchange token for OAuth2 access_token via token exchange backend (or use OAuth2 Popup)
+      getOAuthAccessToken();
     }
+
+    function getOAuthAccessToken() {
+      const SCOPES = encodeURIComponent("https://www.googleapis.com/auth/drive.file");
+      const REDIRECT_URI = "https://leungsiugut.github.io"; // Must match OAuth settings
+      const AUTH_URI = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=${SCOPES}&prompt=consent`;
+      
+      const width = 500, height = 600;
+      const left = (screen.width - width) / 2;
+      const top = (screen.height - height) / 2;
+      
+      const authWindow = window.open(AUTH_URI, "GoogleAuth", `width=${width},height=${height},top=${top},left=${left}`);
+
+      const timer = setInterval(() => {
+        try {
+          if (authWindow.location.href.includes("access_token")) {
+            const hash = authWindow.location.hash.substring(1);
+            const result = new URLSearchParams(hash);
+            accessToken = result.get("access_token");
+            document.getElementById("status").innerText = "Signed in. Ready to backup.";
+            document.getElementById("backupButton").style.display = "inline";
+            clearInterval(timer);
+            authWindow.close();
+          }
+        } catch (e) {}
+      }, 500);
+    }
+
+    document.getElementById("backupButton").addEventListener("click", async () => {
+      const data = {
+        date: new Date().toISOString(),
+        example: "This is your TFSA data. Replace with real data."
+      };
+
+      const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+      const metadata = {
+        name: "tfsa-backup.json",
+        mimeType: "application/json"
+      };
+
+      const form = new FormData();
+      form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+      form.append("file", blob);
+
+      const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+        method: "POST",
+        headers: new Headers({ Authorization: `Bearer ${accessToken}` }),
+        body: form
+      });
+
+      const result = await res.json();
+      document.getElementById("status").innerText = `Backup complete. File ID: ${result.id}`;
+    });
   </script>
 </body>
 </html>
