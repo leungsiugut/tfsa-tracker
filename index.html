@@ -1,144 +1,109 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-  <meta charset="UTF-8" />
-  <title>TFSA Tracker</title>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <style>
-    body {
-      font-family: "Segoe UI", sans-serif;
-      background: #fff8dc; /* 鵝黃色 */
-      color: #1a2a6c; /* 藍色 */
-      max-width: 960px;
-      margin: auto;
-      padding: 30px;
-    }
-    h1 {
-      color: #1a2a6c;
-      margin-bottom: 20px;
-    }
-    #login-button {
-      margin-bottom: 20px;
-    }
-    #content {
-      display: flex;
-      gap: 30px;
-    }
-    #balances-section {
-      flex: 1;
-      background: #f0e7c9;
-      padding: 15px;
-      border-radius: 10px;
-      box-shadow: 0 1px 5px rgba(26, 42, 108, 0.2);
-      min-width: 250px;
-      max-height: 600px;
-      overflow-y: auto;
-    }
-    #transactions-section {
-      flex: 3;
-      background: #fff;
-      padding: 15px 20px;
-      border-radius: 10px;
-      box-shadow: 0 1px 5px rgba(26, 42, 108, 0.2);
-      max-height: 600px;
-      overflow-y: auto;
-    }
-    form {
-      margin-bottom: 15px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-      background: #fef9e7;
-      padding: 15px;
-      border-radius: 8px;
-      border: 1px solid #d7d1a2;
-    }
-    form input, form select {
-      padding: 6px 10px;
-      border-radius: 6px;
-      border: 1px solid #999;
-      font-size: 14px;
-      flex-grow: 1;
-      min-width: 130px;
-    }
-    form button {
-      background: #1a2a6c;
-      color: white;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      flex-grow: 0;
-      min-width: 110px;
-      font-weight: bold;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-    }
-    th, td {
-      border-bottom: 1px solid #ddd;
-      padding: 8px 10px;
-      text-align: left;
-      vertical-align: middle;
-    }
-    th {
-      background: #f5f5dc;
-      font-weight: 600;
-    }
-    .icon-btn {
-      cursor: pointer;
-      border: none;
-      background: none;
-      padding: 4px;
-      margin: 0 2px;
-      color: #1a2a6c;
-    }
-    .icon-btn:hover {
-      color: #27408b;
-    }
-    .section-title {
-      font-weight: 600;
-      font-size: 18px;
-      margin-bottom: 10px;
-      color: #1a2a6c;
-      border-bottom: 2px solid #d7d1a2;
-      padding-bottom: 6px;
-    }
-    #room-display {
-      font-size: 1.2em;
-      font-weight: bold;
-      margin-bottom: 20px;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TFSA Tracker</title>
+<style>
+  body {
+    font-family: "Segoe UI", sans-serif;
+    background: #fff8dc; /* 鵝黃色 */
+    color: #1e3a8a; /* 藍色 */
+    max-width: 960px;
+    margin: auto;
+    padding: 20px;
+  }
+  h1 { text-align: center; color: #1e3a8a; }
+  #login-btn {
+    display: block;
+    margin: 30px auto;
+    padding: 12px 25px;
+    font-size: 18px;
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  form {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 0 8px rgb(30 58 138 / 0.3);
+    margin-bottom: 25px;
+  }
+  input, select, button {
+    font-size: 1rem;
+    padding: 8px 10px;
+    margin: 5px;
+    border-radius: 6px;
+    border: 1px solid #1e3a8a;
+    color: #1e3a8a;
+  }
+  button {
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 30px;
+  }
+  th, td {
+    border-bottom: 1px solid #1e3a8a;
+    padding: 10px;
+    text-align: left;
+  }
+  th {
+    background: #cbd5e1;
+    color: #1e3a8a;
+  }
+  .action-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #1e3a8a;
+    font-size: 18px;
+    margin: 0 3px;
+  }
+  #container {
+    display: flex;
+    gap: 20px;
+  }
+  #balances-section {
+    width: 30%;
+  }
+  #transactions-section {
+    width: 70%;
+  }
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
 
-  <h1>TFSA Tracker</h1>
+<h1>TFSA Tracker</h1>
 
-  <div id="login-button"></div>
+<button id="login-btn" style="display:none;">用Google帳戶登入</button>
 
-  <div id="room-display" style="display:none;">
-    Current Contribution Room: <span id="room"></span>
-  </div>
+<div id="app" style="display:none;">
+  <p><strong>Current Contribution Room: </strong><span id="room">0</span></p>
 
-  <div id="content" style="display:none;">
+  <div id="container">
     <section id="balances-section">
-      <div class="section-title">Account Balances</div>
+      <h2>Account Balances</h2>
       <table>
         <thead>
-          <tr>
-            <th>Bank Account</th>
-            <th>Balance</th>
-          </tr>
+          <tr><th>Bank Account</th><th>Balance</th></tr>
         </thead>
         <tbody id="balances"></tbody>
       </table>
     </section>
 
     <section id="transactions-section">
+      <h2>Transactions</h2>
       <form id="tfsa-form">
         <input type="date" id="date" required />
         <select id="action" required>
@@ -150,10 +115,9 @@
         </select>
         <input type="text" id="bankAccount" placeholder="Bank Account" />
         <input type="number" step="0.01" id="amount" placeholder="Amount $" required />
-        <button type="submit">Add Transaction</button>
+        <button type="submit">Add</button>
       </form>
 
-      <div class="section-title">Transactions</div>
       <table>
         <thead>
           <tr>
@@ -171,343 +135,266 @@
     </section>
   </div>
 
-  <script>
-    const CLIENT_ID = "255642706987-fm46aujhnbk3ffoqg2cukm59j2de9hjm.apps.googleusercontent.com";
-    const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
-    let tokenClient;
-    let gapiInited = false;
-    let gisInited = false;
+<script>
+  // YOUR CLIENT_ID here
+  const CLIENT_ID = "255642706987-fm46aujhnbk3ffoqg2cukm59j2de9hjm.apps.googleusercontent.com";
+  const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
 
-    // Google API & Identity Services init
-    function gapiLoaded() {
-      gapi.load('client', initializeGapiClient);
-    }
+  let tokenClient;
+  let gapiInited = false;
+  let gisInited = false;
 
-    async function initializeGapiClient() {
-      await gapi.client.init({
-        apiKey: '', // No apiKey needed here
-        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-      });
-      gapiInited = true;
-      maybeEnableButtons();
-    }
+  let accessToken = null;
+  let userId = null;
 
-    function gisLoaded() {
-      tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: '', // will be set later
-      });
-      gisInited = true;
-      maybeEnableButtons();
-    }
+  const loginBtn = document.getElementById("login-btn");
+  const appDiv = document.getElementById("app");
 
-    function maybeEnableButtons() {
-      if (gapiInited && gisInited) {
-        renderLoginButton();
+  let transactions = [];
+  let contributionRoom = 0;
+
+  function commaFormat(num) {
+    return num.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+
+  function formatMoney(num) {
+    return "$" + commaFormat(num);
+  }
+
+  function updateUI() {
+    // Sort transactions by date and input order
+    transactions.sort((a, b) => {
+      if (a.date < b.date) return -1;
+      if (a.date > b.date) return 1;
+      return 0;
+    });
+
+    contributionRoom = 0;
+    let balances = {};
+
+    transactions.forEach((tx) => {
+      // Calculate balances and contribution room
+      if (tx.action === "Contribution") contributionRoom -= tx.amount;
+      else if (tx.action === "Withdraw") contributionRoom += tx.amount;
+      else if (tx.action === "Room Increase") contributionRoom += tx.amount;
+
+      if (tx.action === "Transfer") {
+        // Transfer: bankAccount format: "From→To" or "From → To"
+        const parts = tx.bankAccount.split("→").map(s => s.trim());
+        if (parts.length === 2) {
+          balances[parts[0]] = (balances[parts[0]] || 0) - tx.amount;
+          balances[parts[1]] = (balances[parts[1]] || 0) + tx.amount;
+        }
+      } else {
+        balances[tx.bankAccount] = (balances[tx.bankAccount] || 0) + (tx.action === "Withdraw" ? -tx.amount : tx.amount);
       }
+    });
+
+    document.getElementById("room").textContent = commaFormat(contributionRoom);
+
+    // Render balances
+    const balancesBody = document.getElementById("balances");
+    balancesBody.innerHTML = "";
+    for (const ba in balances) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${ba}</td><td>${formatMoney(balances[ba])}</td>`;
+      balancesBody.appendChild(tr);
     }
 
-    let userId = null;
-    let transactions = [];
-    let contributionRoom = 0;
+    // Render transactions log
+    const logBody = document.getElementById("log");
+    logBody.innerHTML = "";
+    transactions.forEach((tx, idx) => {
+      const tr = document.createElement("tr");
 
-    // DOM elements
-    const loginButtonDiv = document.getElementById('login-button');
-    const contentDiv = document.getElementById('content');
-    const roomDisplay = document.getElementById('room');
-    const roomDisplayContainer = document.getElementById('room-display');
-    const form = document.getElementById('tfsa-form');
-    const log = document.getElementById('log');
-    const balancesTable = document.getElementById('balances');
+      // From and To Bank Account columns
+      let fromBA = "";
+      let toBA = tx.bankAccount;
+      if (tx.action === "Transfer") {
+        const parts = tx.bankAccount.split("→").map(s => s.trim());
+        fromBA = parts[0] || "";
+        toBA = parts[1] || "";
+      } else if (tx.action === "Room Increase") {
+        toBA = "";
+      }
 
-    // Load Google API script and Identity Services script
-    window.onload = function() {
-      // Load gapi script
-      const gapiScript = document.createElement('script');
-      gapiScript.src = "https://apis.google.com/js/api.js";
-      gapiScript.onload = gapiLoaded;
-      document.body.appendChild(gapiScript);
+      tr.innerHTML = `
+        <td>${tx.date}</td>
+        <td>${tx.action}</td>
+        <td>${fromBA}</td>
+        <td>${toBA}</td>
+        <td>${formatMoney(tx.amount)}</td>
+        <td>${formatMoney(contributionRoom)}</td>
+        <td>
+          <button class="action-btn" title="Edit" onclick="editTx(${idx})">&#9998;</button>
+          <button class="action-btn" title="Delete" onclick="deleteTx(${idx})">&#128465;</button>
+        </td>
+      `;
+      logBody.appendChild(tr);
+    });
+  }
 
-      // Load Google Identity Services script included in <head> already for tokenClient
+  function saveToDrive() {
+    if (!accessToken || !userId) return Promise.reject("No login");
+    const fileName = `tfsa_tracker_${userId}.json`;
+    const content = JSON.stringify({transactions});
+    const metadata = {
+      name: fileName,
+      parents: ['appDataFolder'],
+      mimeType: 'application/json'
     };
 
-    // Render Login button or Logout button
-    function renderLoginButton() {
-      if (!userId) {
-        loginButtonDiv.innerHTML = `<button id="loginBtn" style="padding:10px 20px; font-size:16px; cursor:pointer;">Google Login</button>`;
-        document.getElementById('loginBtn').onclick = handleLogin;
-      } else {
-        loginButtonDiv.innerHTML = `<button id="logoutBtn" style="padding:10px 20px; font-size:16px; cursor:pointer; background:#c44; color:#fff;">Logout</button>`;
-        document.getElementById('logoutBtn').onclick = handleLogout;
-      }
-    }
-
-    function handleLogin() {
-      tokenClient.callback = async (resp) => {
-        if (resp.error) {
-          alert('Login Failed: ' + resp.error);
-          return;
-        }
-        gapi.client.setToken(resp);
-        await loadUserInfo();
-        await loadDataFromDrive();
-        updateUI();
-        loginSuccessUI();
-      };
-      tokenClient.requestAccessToken();
-    }
-
-    function handleLogout() {
-      userId = null;
-      transactions = [];
-      contributionRoom = 0;
-      localStorage.clear();
-      gapi.client.setToken(null);
-      loginButtonDiv.innerHTML = '';
-      contentDiv.style.display = 'none';
-      roomDisplayContainer.style.display = 'none';
-      renderLoginButton();
-    }
-
-    async function loadUserInfo() {
-      const response = await gapi.client.request({
-        path: 'https://www.googleapis.com/oauth2/v3/userinfo'
-      });
-      userId = response.result.sub;
-    }
-
-    async function loadDataFromDrive() {
-      try {
-        const fileName = `tfsa_tracker_${userId}.json`;
-
-        // Search for file in appDataFolder
-        const listResponse = await gapi.client.drive.files.list({
-          spaces: 'appDataFolder',
-          fields: 'files(id, name)',
-          q: `name='${fileName}'`
+    // First list files with this name
+    return gapi.client.drive.files.list({
+      spaces: 'appDataFolder',
+      fields: 'files(id, name)',
+      q: `name='${fileName}'`
+    }).then(response => {
+      const files = response.result.files;
+      if (files && files.length > 0) {
+        // update existing
+        const fileId = files[0].id;
+        return gapi.client.drive.files.update({
+          fileId: fileId,
+          media: {
+            mimeType: 'application/json',
+            body: content
+          }
         });
+      } else {
+        // create new
+        const form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
+        form.append('file', new Blob([content], {type: 'application/json'}));
 
-        if (listResponse.result.files.length === 0) {
-          // No file found, reset data
-          transactions = [];
-          contributionRoom = 0;
-          updateUI();
-          return;
-        }
+        // Use fetch for multipart upload (gapi has issues with multipart upload)
+        return fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + accessToken },
+          body: form
+        });
+      }
+    });
+  }
 
-        // Get file content
-        const fileId = listResponse.result.files[0].id;
-        const fileResponse = await gapi.client.drive.files.get({
+  function loadFromDrive() {
+    if (!accessToken || !userId) return Promise.reject("No login");
+    const fileName = `tfsa_tracker_${userId}.json`;
+
+    return gapi.client.drive.files.list({
+      spaces: 'appDataFolder',
+      fields: 'files(id, name)',
+      q: `name='${fileName}'`
+    }).then(response => {
+      const files = response.result.files;
+      if (files && files.length > 0) {
+        const fileId = files[0].id;
+        return gapi.client.drive.files.get({
           fileId: fileId,
           alt: 'media'
         });
-        const data = JSON.parse(fileResponse.body || fileResponse.result);
-        transactions = data.transactions || [];
-        contributionRoom = data.contributionRoom || 0;
-        updateUI();
-
-      } catch (e) {
-        alert('Failed to load backup data: ' + e.message);
-      }
-    }
-
-    async function saveDataToDrive() {
-      if (!userId) return;
-      const fileName = `tfsa_tracker_${userId}.json`;
-      const data = {
-        transactions,
-        contributionRoom
-      };
-      const fileContent = JSON.stringify(data);
-
-      try {
-        // Search for existing file
-        const listResponse = await gapi.client.drive.files.list({
-          spaces: 'appDataFolder',
-          fields: 'files(id, name)',
-          q: `name='${fileName}'`
-        });
-
-        if (listResponse.result.files.length === 0) {
-          // Create new file
-          const metadata = {
-            name: fileName,
-            parents: ['appDataFolder']
-          };
-          const form = new FormData();
-          form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
-          form.append('file', new Blob([fileContent], {type: 'application/json'}));
-
-          await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
-            method: 'POST',
-            headers: {
-              'Authorization': 'Bearer ' + gapi.client.getToken().access_token
-            },
-            body: form
-          });
-        } else {
-          // Update existing file
-          const fileId = listResponse.result.files[0].id;
-          await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
-            method: 'PATCH',
-            headers: {
-              'Authorization': 'Bearer ' + gapi.client.getToken().access_token,
-              'Content-Type': 'application/json'
-            },
-            body: fileContent
-          });
-        }
-      } catch (e) {
-        alert('Failed to save backup data: ' + e.message);
-      }
-    }
-
-    function loginSuccessUI() {
-      renderLoginButton();
-      contentDiv.style.display = 'flex';
-      roomDisplayContainer.style.display = 'block';
-    }
-
-    function updateUI() {
-      // Sort transactions by date asc, then order
-      transactions.sort((a,b) => {
-        if (a.date < b.date) return -1;
-        if (a.date > b.date) return 1;
-        return 0; // same date keep input order
-      });
-
-      // Calculate balances & contributionRoom display
-      let balances = {};
-      let cr = 0;
-
-      transactions.forEach(tx => {
-        const amt = Number(tx.amount) || 0;
-        if (tx.action === 'Contribution') cr -= amt;
-        if (tx.action === 'Withdraw') cr += amt;
-        if (tx.action === 'Room Increase') cr += amt;
-
-        // For balances calc
-        if (tx.action === 'Transfer') {
-          // bankAccount format: "From → To"
-          const parts = (tx.bankAccount || '').split('→').map(s => s.trim());
-          if(parts.length === 2) {
-            const fromKey = parts[0];
-            const toKey = parts[1];
-            balances[fromKey] = (balances[fromKey] || 0) - amt;
-            balances[toKey] = (balances[toKey] || 0) + amt;
-          }
-        } else {
-          const key = tx.bankAccount || '';
-          if(!key) return;
-          balances[key] = (balances[key] || 0);
-          if(tx.action === 'Contribution' || tx.action === 'Interest') balances[key] += amt;
-          else if(tx.action === 'Withdraw') balances[key] -= amt;
-          // Room Increase no balance change
-        }
-      });
-
-      contributionRoom = cr;
-      roomDisplay.textContent = `$${contributionRoom.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
-
-      // Render balances left side
-      balancesTable.innerHTML = '';
-      Object.entries(balances).forEach(([bankAccount, bal]) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${bankAccount}</td>
-          <td>$${bal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-        `;
-        balancesTable.appendChild(tr);
-      });
-
-      // Render transactions table
-      log.innerHTML = '';
-      transactions.forEach((tx, i) => {
-        const tr = document.createElement('tr');
-
-        // From Bank Account / To Bank Account columns
-        let fromBA = '', toBA = '';
-        if(tx.action === 'Transfer') {
-          const parts = (tx.bankAccount || '').split('→').map(s => s.trim());
-          fromBA = parts[0] || '';
-          toBA = parts[1] || '';
-        } else {
-          toBA = tx.bankAccount || '';
-        }
-
-        tr.innerHTML = `
-          <td>${tx.date}</td>
-          <td>${tx.action}</td>
-          <td>${fromBA}</td>
-          <td>${toBA}</td>
-          <td>$${Number(tx.amount).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-          <td>$${contributionRoom.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-          <td>
-            <button class="icon-btn" title="Edit" onclick="editTransaction(${i})">&#9998;</button>
-            <button class="icon-btn" title="Delete" onclick="deleteTransaction(${i})">&#128465;</button>
-          </td>
-        `;
-        log.appendChild(tr);
-      });
-    }
-
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-
-      const date = form.date.value;
-      const action = form.action.value;
-      let bankAccount = form.bankAccount.value.trim();
-      const amount = parseFloat(form.amount.value);
-
-      if (!date || !action || isNaN(amount) || amount <= 0) {
-        alert('請填寫所有必須欄位且金額需大於 0');
-        return;
-      }
-      if(action !== 'Room Increase' && bankAccount === '') {
-        alert('請輸入 Bank Account（Room Increase 除外）');
-        return;
-      }
-      // For Transfer action, must have "from → to" format in bankAccount
-      if(action === 'Transfer' && !bankAccount.includes('→')) {
-        alert('Transfer 類型嘅 Bank Account 需以「From → To」格式輸入');
-        return;
-      }
-
-      // If editing, update instead of add
-      if(form.dataset.editIndex !== undefined) {
-        const idx = Number(form.dataset.editIndex);
-        transactions[idx] = {date, action, bankAccount, amount};
-        delete form.dataset.editIndex;
       } else {
-        transactions.push({date, action, bankAccount, amount});
+        return Promise.reject("No backup file");
       }
-
-      saveDataToDrive();
+    }).then(fileContent => {
+      const data = JSON.parse(fileContent.body || fileContent);
+      transactions = data.transactions || [];
       updateUI();
-      form.reset();
     });
+  }
 
-    // Edit transaction
-    function editTransaction(index) {
-      const tx = transactions[index];
-      form.date.value = tx.date;
-      form.action.value = tx.action;
-      form.bankAccount.value = tx.bankAccount;
-      form.amount.value = tx.amount;
-      form.dataset.editIndex = index;
+  function initGapi() {
+    gapi.load('client', async () => {
+      await gapi.client.init({
+        apiKey: '', // no apiKey needed for appDataFolder
+        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+      });
+      gapiInited = true;
+      maybeEnableButtons();
+    });
+  }
+
+  function maybeEnableButtons() {
+    if (gisInited && gapiInited) {
+      loginBtn.style.display = 'block';
     }
+  }
 
-    // Delete transaction
-    function deleteTransaction(index) {
-      if(!confirm('確定要刪除此交易嗎？')) return;
-      transactions.splice(index,1);
-      saveDataToDrive();
+  function handleCredentialResponse(response) {
+    accessToken = response.access_token;
+    // decode id_token for user sub
+    const base64Url = response.id_token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    userId = JSON.parse(jsonPayload).sub;
+
+    loginBtn.style.display = 'none';
+    appDiv.style.display = 'block';
+
+    loadFromDrive().catch(() => {
+      // no backup found, start fresh
+      transactions = [];
       updateUI();
-    }
+    });
+  }
 
-  </script>
+  function initializeGis() {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      callback: handleCredentialResponse,
+    });
+    gisInited = true;
+    maybeEnableButtons();
+  }
+
+  loginBtn.addEventListener('click', () => {
+    tokenClient.requestAccessToken();
+  });
+
+  // Form submit add new transaction
+  document.getElementById('tfsa-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const date = document.getElementById('date').value;
+    const action = document.getElementById('action').value;
+    const bankAccount = document.getElementById('bankAccount').value.trim();
+    const amount = parseFloat(document.getElementById('amount').value);
+    if (!date || !action || (action !== "Room Increase" && !bankAccount) || isNaN(amount)) {
+      alert('請填寫完整資料');
+      return;
+    }
+    transactions.push({date, action, bankAccount, amount});
+    updateUI();
+    saveToDrive().catch(e => alert('儲存失敗: '+e.message || e));
+    e.target.reset();
+  });
+
+  window.editTx = function(idx) {
+    const tx = transactions[idx];
+    document.getElementById('date').value = tx.date;
+    document.getElementById('action').value = tx.action;
+    document.getElementById('bankAccount').value = tx.bankAccount;
+    document.getElementById('amount').value = tx.amount;
+    // delete old entry while editing (simple approach)
+    transactions.splice(idx,1);
+    updateUI();
+  }
+
+  window.deleteTx = function(idx) {
+    if (confirm('確定刪除該交易嗎？')) {
+      transactions.splice(idx,1);
+      updateUI();
+      saveToDrive().catch(e => alert('儲存失敗: '+e.message || e));
+    }
+  }
+
+  window.onload = () => {
+    initGapi();
+    initializeGis();
+  };
+</script>
 
 </body>
 </html>
-``
