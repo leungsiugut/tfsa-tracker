@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
   <title>TFSA Tracker</title>
   <meta name="google-signin-client_id" content="255642706987-fm46aujhnbk3ffoqg2cukm59j2de9hjm.apps.googleusercontent.com">
   <style>
@@ -9,67 +8,68 @@
       font-family: "Segoe UI", sans-serif;
       background: #fffdf0;
       color: #333;
-      padding: 30px;
       max-width: 1200px;
       margin: auto;
+      padding: 30px;
     }
-    h1 { color: #1c4e80; }
-
+    h1 {
+      color: #1c4e80;
+    }
     form {
       background: #fff8d4;
-      padding: 15px;
+      padding: 20px;
       border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       margin-bottom: 30px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 10px;
     }
     input, select, button {
-      padding: 6px;
-      font-size: 14px;
-      border: 1px solid #ccc;
+      padding: 8px;
+      margin: 5px;
       border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
     }
     button {
       background: #1c4e80;
       color: white;
+      border: none;
       cursor: pointer;
     }
-
     table {
-      border-collapse: collapse;
       width: 100%;
-      margin-bottom: 30px;
+      border-collapse: collapse;
       background: white;
-      border-radius: 8px;
+      border-radius: 10px;
       overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      margin-bottom: 30px;
     }
     th, td {
-      padding: 10px;
+      padding: 10px 15px;
       border-bottom: 1px solid #eee;
+      text-align: left;
     }
     th {
       background: #ffe;
+      font-weight: bold;
     }
-    .right { text-align: right; }
-
+    .section-title {
+      margin-top: 40px;
+      margin-bottom: 10px;
+      font-size: 1.3em;
+    }
+    .hidden { display: none; }
+    .action-btn { margin-left: 5px; color: #1c4e80; cursor: pointer; }
     .layout {
       display: flex;
-      gap: 30px;
+      gap: 40px;
+      align-items: flex-start;
     }
-    .transactions {
-      flex: 2;
+    .balances-section {
+      flex: 0 0 250px;
     }
-    .balances {
+    .transactions-section {
       flex: 1;
-    }
-
-    .hidden { display: none; }
-    .action-btn {
-      cursor: pointer;
-      font-size: 16px;
-      margin: 0 5px;
     }
   </style>
 </head>
@@ -77,172 +77,44 @@
   <h1>TFSA Tracker</h1>
   <div id="signin-button"></div>
   <p id="user-email"></p>
+  <p><strong>Current Contribution Room:</strong> <span id="room">$0</span></p>
 
   <form id="tfsa-form" class="hidden">
     <input type="date" id="date" required>
-    <select id="action" required>
-      <option>Contribution</option>
-      <option>Withdraw</option>
-      <option>Interest</option>
-      <option>Transfer</option>
-      <option>Room Increase</option>
+    <select id="action">
+      <option value="Contribution">Contribution</option>
+      <option value="Withdraw">Withdraw</option>
+      <option value="Interest">Interest</option>
+      <option value="Transfer">Transfer</option>
+      <option value="Room Increase">Room Increase</option>
     </select>
-    <input type="text" id="bankAccount" placeholder="Bank Account">
-    <input type="number" id="amount" step="0.01" placeholder="Amount" required>
-    <button type="submit">Add</button>
-    <button type="button" onclick="downloadBackup()">💾 Backup</button>
-    <input type="file" onchange="uploadBackup(event)" accept=".json">
+    <input type="text" id="bankAccount" placeholder="Bank Account" required>
+    <input type="number" step="0.01" id="amount" placeholder="Amount $" required>
+    <button type="submit">Add Transaction</button>
   </form>
 
-  <div class="layout">
-    <div class="transactions">
-      <p><strong>Current Contribution Room:</strong> $<span id="room">0</span></p>
+  <div id="main" class="hidden layout">
+    <div class="balances-section">
+      <div class="section-title">Account Balances</div>
       <table>
         <thead>
-          <tr><th>Date</th><th>Transaction Type</th><th>Bank Account</th><th>Amount</th><th>Contribution Room After</th><th>Actions</th></tr>
+          <tr><th>Bank Account</th><th>Balance</th></tr>
+        </thead>
+        <tbody id="balances"></tbody>
+      </table>
+    </div>
+
+    <div class="transactions-section">
+      <div class="section-title">Transactions</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th><th>Transaction Type</th><th>Bank Account</th><th>Amount</th><th>Contribution Room After</th><th>Actions</th>
+          </tr>
         </thead>
         <tbody id="log"></tbody>
       </table>
     </div>
-    <div class="balances">
-      <h3>Account Balances</h3>
-      <table>
-        <thead><tr><th>Bank Account</th><th>Balance</th></tr></thead>
-        <tbody id="balances"></tbody>
-      </table>
-    </div>
   </div>
-
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script>
-    let userId = "", userEmail = "", transactions = [], accessToken = "";
-
-    function updateUI() {
-      const log = document.getElementById("log");
-      const balancesTbl = document.getElementById("balances");
-      const roomDisplay = document.getElementById("room");
-      log.innerHTML = "";
-      balancesTbl.innerHTML = "";
-
-      let balanceMap = {}, room = 0, runningRoom = 0;
-
-      transactions.forEach((tx, i) => {
-        if (tx.action === "Contribution") room -= tx.amount;
-        else if (tx.action === "Withdraw") room += tx.amount;
-        else if (tx.action === "Room Increase") room += tx.amount;
-
-        const row = document.createElement("tr");
-
-        const displayBank = tx.action === "Transfer" ? tx.bankAccount : (tx.bankAccount || "-");
-
-        row.innerHTML = `
-          <td>${tx.date}</td>
-          <td>${tx.action}</td>
-          <td>${displayBank}</td>
-          <td class="right">$${tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-          <td class="right">$${room.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-          <td>
-            <span class="action-btn" onclick="editTx(${i})">🖊</span>
-            <span class="action-btn" onclick="deleteTx(${i})">🗑</span>
-          </td>
-        `;
-        log.appendChild(row);
-
-        // update balances
-        if (tx.action === "Transfer") {
-          const [from, to] = tx.bankAccount.split("→").map(x => x.trim());
-          balanceMap[from] = (balanceMap[from] || 0) - tx.amount;
-          balanceMap[to] = (balanceMap[to] || 0) + tx.amount;
-        } else if (tx.action !== "Room Increase") {
-          const acct = tx.bankAccount;
-          balanceMap[acct] = (balanceMap[acct] || 0);
-          if (tx.action === "Contribution" || tx.action === "Interest")
-            balanceMap[acct] += tx.amount;
-          else if (tx.action === "Withdraw")
-            balanceMap[acct] -= tx.amount;
-        }
-      });
-
-      roomDisplay.textContent = room.toLocaleString(undefined, { minimumFractionDigits: 2 });
-
-      for (const acct in balanceMap) {
-        const row = document.createElement("tr");
-        row.innerHTML = `<td>${acct}</td><td class="right">$${balanceMap[acct].toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>`;
-        balancesTbl.appendChild(row);
-      }
-    }
-
-    function editTx(i) {
-      const tx = transactions[i];
-      document.getElementById("date").value = tx.date;
-      document.getElementById("action").value = tx.action;
-      document.getElementById("bankAccount").value = tx.bankAccount;
-      document.getElementById("amount").value = tx.amount;
-      transactions.splice(i, 1);
-      updateUI();
-    }
-
-    function deleteTx(i) {
-      transactions.splice(i, 1);
-      updateUI();
-    }
-
-    document.getElementById("tfsa-form").addEventListener("submit", e => {
-      e.preventDefault();
-      const action = document.getElementById("action").value;
-      const account = document.getElementById("bankAccount").value;
-      const amount = parseFloat(document.getElementById("amount").value);
-      const date = document.getElementById("date").value;
-      if (action !== "Room Increase" && !account.trim()) return alert("Please enter Bank Account.");
-      transactions.push({ date, action, bankAccount: account, amount });
-      transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
-      updateUI();
-      e.target.reset();
-    });
-
-    function downloadBackup() {
-      const blob = new Blob([JSON.stringify(transactions)], { type: "application/json" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `tfsa_backup_${userId}.json`;
-      link.click();
-    }
-
-    function uploadBackup(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          transactions = JSON.parse(reader.result);
-          updateUI();
-        } catch (err) {
-          alert("Invalid file format.");
-        }
-      };
-      reader.readAsText(file);
-    }
-
-    window.onload = () => {
-      google.accounts.id.initialize({
-        client_id: "255642706987-fm46aujhnbk3ffoqg2cukm59j2de9hjm.apps.googleusercontent.com",
-        callback: res => {
-          const token = res.credential;
-          fetch("https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + token)
-            .then(r => r.json())
-            .then(data => {
-              userId = data.sub;
-              userEmail = data.email;
-              document.getElementById("signin-button").classList.add("hidden");
-              document.getElementById("user-email").textContent = `Logged in as ${userEmail}`;
-              document.getElementById("tfsa-form").classList.remove("hidden");
-            });
-        }
-      });
-      google.accounts.id.renderButton(document.getElementById("signin-button"), {
-        theme: "filled_blue", size: "large"
-      });
-    };
-  </script>
 </body>
 </html>
